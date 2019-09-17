@@ -20,8 +20,12 @@
 #include "config.h"
 
 /*************************** Sketch Code ************************************/
-int remoteVal = 0;
-bool remoteWasTouched = false;
+#define TOUCHING_NONE 0
+#define TOUCHING_1  1
+#define TOUCHING_2  2
+#define TOUCHING_3  3
+#define TOUCHING_4  4
+#define TOUCHING_5  5
 
 Adafruit_NeoPixel stripLEDs = Adafruit_NeoPixel(PIXEL_COUNT, LIGHTS_PIN, NEO_RGB);
 
@@ -41,6 +45,22 @@ void setup() {
   pinMode(TOUCH3_PIN, INPUT);
   pinMode(TOUCH4_PIN, INPUT);
   pinMode(TOUCH5_PIN, INPUT);
+
+  // Set the 5 audio trigger pins to output.
+  pinMode(SOUND1_PIN, OUTPUT);
+  pinMode(SOUND2_PIN, OUTPUT);
+  pinMode(SOUND3_PIN, OUTPUT);
+  pinMode(SOUND4_PIN, OUTPUT);
+  pinMode(SOUND5_PIN, OUTPUT);
+
+  digitalWrite(SOUND1_PIN, HIGH);
+  digitalWrite(SOUND2_PIN, HIGH);
+  digitalWrite(SOUND3_PIN, HIGH);
+  digitalWrite(SOUND4_PIN, HIGH);
+  digitalWrite(SOUND5_PIN, HIGH);
+
+  // Set the playing/active pin to input.
+  pinMode(PLAYING_PIN, INPUT);
   
   stripLEDs.begin();
 
@@ -56,16 +76,26 @@ void setup() {
 
 void loop() {
   long loopStart = millis();
-
-  Serial.println(loopStart);
   timeline.update(loopStart);
 
-  bool touched = readTouches();
-  if (touched) {
-    digitalWrite(ONBOARD_LED, HIGH);
+  bool playing = isPlaying();
+  Serial.print("Is Playing: ");  
+  Serial.println(playing);
+ 
+  unsigned int touched = readTouches();
+  if (touched != TOUCHING_NONE) {
+    Serial.print("Touch detected: ");  
+    Serial.println(touched);
+    digitalWrite(SOUND1_PIN, LOW);
+    digitalWrite(ONBOARD_LED, LOW);
     timeline.restartFrom(millis());
   } else {
-    digitalWrite(ONBOARD_LED, LOW);
+    digitalWrite(SOUND1_PIN, HIGH);
+    digitalWrite(SOUND2_PIN, HIGH);
+    digitalWrite(SOUND3_PIN, HIGH);
+    digitalWrite(SOUND4_PIN, HIGH);
+    digitalWrite(SOUND5_PIN, HIGH);
+    digitalWrite(ONBOARD_LED, HIGH);
   }
 
   if (timeline.isComplete()) {
@@ -90,22 +120,26 @@ void setStripColors(Adafruit_NeoPixel &strip, uint32_t color) {
 }
 
 /**
- * If any of the sensors is reading HIGH, return true.
+ * If any of the sensors is reading HIGH, return the touch number.
  */
-bool readTouches () {
-  if (digitalRead(TOUCH1_PIN) == HIGH)
-    return true;
-  if (digitalRead(TOUCH2_PIN) == HIGH)
-    return true;
-  if (digitalRead(TOUCH3_PIN) == HIGH)
-    return true;
-  if (digitalRead(TOUCH4_PIN) == HIGH)
-    return true;
-  if (digitalRead(TOUCH5_PIN) == HIGH)
-    return true;
+int readTouches () {
+  if (digitalRead(TOUCH1_PIN) == LOW)
+    return TOUCHING_1;
+  if (digitalRead(TOUCH2_PIN) == LOW)
+    return TOUCHING_2;
+  if (digitalRead(TOUCH3_PIN) == LOW)
+    return TOUCHING_3;
+  if (digitalRead(TOUCH4_PIN) == LOW)
+    return TOUCHING_4;
+  if (digitalRead(TOUCH5_PIN) == LOW)
+    return TOUCHING_5;
 
   // Else...
-  return false;
+  return TOUCHING_NONE;
+}
+
+bool isPlaying () {  
+  return digitalRead(PLAYING_PIN) == LOW;
 }
 
 // Make a pattern.
