@@ -5,7 +5,7 @@
 /***************************************************
   Sound Light Touch Sourcecode
 
-  Written by Weston Wedding as a contribution to 
+  Written by Weston Wedding as a contribution to
   Tabitha Darrah's Sept 2019 installation.
 
   Based at least in part on example code
@@ -61,7 +61,7 @@ void setup() {
 
   // Set the playing/active pin to input.
   pinMode(PLAYING_PIN, INPUT);
-  
+
   stripLEDs.begin();
 
   addTweensTo(timeline);
@@ -70,7 +70,7 @@ void setup() {
 
   stripLEDs.clear();
   stripLEDs.show();
-  
+
   pinMode(ONBOARD_LED, OUTPUT);
 }
 
@@ -79,23 +79,31 @@ void loop() {
   timeline.update(loopStart);
 
   bool playing = isPlaying();
-  Serial.print("Is Playing: ");  
+  Serial.print("AIs Playing: ");
   Serial.println(playing);
- 
+
   unsigned int touched = readTouches();
-  if (touched != TOUCHING_NONE) {
-    Serial.print("Touch detected: ");  
-    Serial.println(touched);
-    digitalWrite(SOUND1_PIN, LOW);
-    digitalWrite(ONBOARD_LED, LOW);
-    timeline.restartFrom(millis());
-  } else {
-    digitalWrite(SOUND1_PIN, HIGH);
-    digitalWrite(SOUND2_PIN, HIGH);
-    digitalWrite(SOUND3_PIN, HIGH);
-    digitalWrite(SOUND4_PIN, HIGH);
-    digitalWrite(SOUND5_PIN, HIGH);
-    digitalWrite(ONBOARD_LED, HIGH);
+
+  switch (touched) {
+    case TOUCHING_1:
+      doTubeRoutine();
+      break;
+    case TOUCHING_2:
+      doSplatterRoutine();
+      break;
+    case TOUCHING_3:
+      doFarRoutine();
+    case TOUCHING_NONE:
+      digitalWrite(SOUND1_PIN, HIGH);
+      digitalWrite(SOUND2_PIN, HIGH);
+      digitalWrite(SOUND3_PIN, HIGH);
+      digitalWrite(SOUND4_PIN, HIGH);
+      digitalWrite(SOUND5_PIN, HIGH);
+      digitalWrite(ONBOARD_LED, HIGH);
+      break;
+    default:
+      Serial.println("Error! Unrecognized input state.");
+      break;
   }
 
   if (timeline.isComplete()) {
@@ -104,7 +112,7 @@ void loop() {
 
   // 3 colors: Red, Green, Blue whose values range from 0-255.
   const uint32_t stripColor = stripLEDs.Color(108 * brightness, 235 * brightness, 10 * brightness, 0); // Colors are off, white LED is pure white.
-  
+
   setStripColors(stripLEDs, stripColor);
 
   // This sends the updated pixel color to the hardware.
@@ -114,14 +122,14 @@ void loop() {
 void setStripColors(Adafruit_NeoPixel &strip, uint32_t color) {
   const int numPixels = strip.numPixels();
 
-  for (int i=0;i<numPixels;i++) {
+  for (int i = 0; i < numPixels; i++) {
     strip.setPixelColor(i, color);
   }
 }
 
 /**
- * If any of the sensors is reading HIGH, return the touch number.
- */
+   If any of the sensors is reading HIGH, return the touch number.
+*/
 int readTouches () {
   if (digitalRead(TOUCH1_PIN) == LOW)
     return TOUCHING_1;
@@ -138,14 +146,50 @@ int readTouches () {
   return TOUCHING_NONE;
 }
 
-bool isPlaying () {  
+bool isPlaying () {
   return digitalRead(PLAYING_PIN) == LOW;
 }
 
 // Make a pattern.
 void addTweensTo(TweenDuino::Timeline &timeline) {
 
- timeline.addTo(brightness, 1.0, 50);
+  timeline.addTo(brightness, 1.0, 50);
   timeline.addTo(brightness, 0.25, 50);
   timeline.addTo(brightness, 1.0, 50);
+}
+
+void doTubeRoutine () {
+    Serial.println("Tube touch.");
+    digitalWrite(SOUND1_PIN, LOW);
+    digitalWrite(ONBOARD_LED, LOW);
+    timeline.restartFrom(millis());
+
+    digitalWrite(SOUND2_PIN, HIGH);
+    digitalWrite(SOUND3_PIN, HIGH);
+    digitalWrite(SOUND4_PIN, HIGH);
+    digitalWrite(SOUND5_PIN, HIGH);
+}
+
+void doSplatterRoutine() {
+    Serial.println("Splatter touch.");
+    digitalWrite(SOUND2_PIN, LOW);
+    digitalWrite(ONBOARD_LED, LOW);
+    timeline.restartFrom(millis());
+
+    digitalWrite(SOUND1_PIN, HIGH);
+    digitalWrite(SOUND3_PIN, HIGH);
+    digitalWrite(SOUND4_PIN, HIGH);
+    digitalWrite(SOUND5_PIN, HIGH);
+}
+
+void doFarRoutine() {
+    Serial.println("Far touch.");
+    digitalWrite(SOUND3_PIN, LOW);
+    digitalWrite(ONBOARD_LED, LOW);
+    timeline.restartFrom(millis());
+
+    digitalWrite(SOUND1_PIN, HIGH);
+    digitalWrite(SOUND2_PIN, HIGH);
+    digitalWrite(SOUND4_PIN, HIGH);
+    digitalWrite(SOUND5_PIN, HIGH);
 }
