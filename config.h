@@ -17,7 +17,7 @@
 #define PLAYING_PIN    12
 
 
-#define PIXEL_COUNT    3
+#define PIXEL_COUNT    10
 
 
 #endif

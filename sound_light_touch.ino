@@ -21,19 +21,22 @@
 
 /*************************** Sketch Code ************************************/
 #define TOUCHING_NONE 0
-#define TOUCHING_1  1
-#define TOUCHING_2  2
-#define TOUCHING_3  3
+#define TOUCHING_1    1
+#define TOUCHING_2    2
+#define TOUCHING_3    3
+
+#define ROUTINE_NONE 0
+#define ROUTINE_1    1
+#define ROUTINE_2    2
+#define ROUTINE_3    3
 
 Adafruit_NeoPixel stripLEDs = Adafruit_NeoPixel(PIXEL_COUNT, LIGHTS_PIN, NEO_RGB);
-
-// Start dim (0).
-float brightness = 0.0;
 
 int myFeed = 0;
 
 TweenDuino::Timeline timeline;
 
+uint32_t stripColor1, stripColor2;  // What colors are in use in the strips.
 void setup() {
   Serial.begin(115200);
 
@@ -63,28 +66,74 @@ void setup() {
   stripLEDs.clear();
   stripLEDs.show();
 
+  // 3 colors: Red, Green, Blue whose values range from 0-255.
+  stripColor1 = stripLEDs.Color(108, 235, 10); 
+  stripColor2 = stripLEDs.Color(25, 25, 25, 0);
+
   pinMode(ONBOARD_LED, OUTPUT);
 }
+
+// Tracks which animation/sound we're doing.
+int routine = ROUTINE_NONE;
+// Tracks whether a routine has been started and we are waiting
+// for the related sound to begin (to syncronize the visuals with audio).
+bool pendingRoutine = false;
+
+// Used to make sure we don't sit locked up for too long
+// if something goes wrong and the Routine's sound never
+// plays.
+long routineStart = 0;
+const long MAX_ROUTINE_WAIT = 1000; // millisecs
 
 void loop() {
   long loopStart = millis();
   timeline.update(loopStart);
 
   bool playing = isPlaying();
-  Serial.print("AIs Playing: ");
-  Serial.println(playing);
 
+  // Clear "routine" if playing has stopped and we aren't
+  // waiting for it to start.
+  if (routine != ROUTINE_NONE && !pendingRoutine && !playing) {
+    Serial.println("Clearing routine");
+    routine = ROUTINE_NONE;
+    stripLEDs.clear();
+    stripLEDs.show();
+  }
+
+  switch (routine) {
+    case ROUTINE_1:
+      doTubeRoutine(playing);
+      break;
+    case ROUTINE_2:
+      doSplatterRoutine(playing);
+      break;
+    case ROUTINE_3:
+      doFarRoutine(playing);
+      break;
+    default:
+      break;
+  }
+  
   unsigned int touched = readTouches();
+
+  // Exit the loop early to skip touch sensing if we
+  // are still in the middle of doing something.
+  if (routine != ROUTINE_NONE) {
+    return;
+  }
 
   switch (touched) {
     case TOUCHING_1:
-      doTubeRoutine();
+      startTubeRoutine();
+      routineStart = loopStart;
       break;
     case TOUCHING_2:
-      doSplatterRoutine();
+      startSplatterRoutine();
+      routineStart = loopStart;
       break;
     case TOUCHING_3:
-      doFarRoutine();
+      startFarRoutine();
+      routineStart = loopStart;
       break;
     case TOUCHING_NONE:
       digitalWrite(SOUND1_PIN, HIGH);
@@ -96,18 +145,6 @@ void loop() {
       Serial.println("Error! Unrecognized input state.");
       break;
   }
-
-  if (timeline.isComplete()) {
-    brightness = 0.0;
-  }
-
-  // 3 colors: Red, Green, Blue whose values range from 0-255.
-  const uint32_t stripColor = stripLEDs.Color(108 * brightness, 235 * brightness, 10 * brightness, 0); // Colors are off, white LED is pure white.
-
-  setStripColors(stripLEDs, stripColor);
-
-  // This sends the updated pixel color to the hardware.
-  stripLEDs.show();
 }
 
 void setStripColors(Adafruit_NeoPixel &strip, uint32_t color) {
@@ -117,6 +154,7 @@ void setStripColors(Adafruit_NeoPixel &strip, uint32_t color) {
     strip.setPixelColor(i, color);
   }
 }
+
 
 /**
    If any of the sensors is reading HIGH, return the touch number.
@@ -138,39 +176,120 @@ bool isPlaying () {
 }
 
 // Make a pattern.
+float brightness = 0.0f;
 void addTweensTo(TweenDuino::Timeline &timeline) {
-
+  timeline.addTo(brightness, 1.0, 50);
+  timeline.addTo(brightness, 0.25, 50);
+  timeline.addTo(brightness, 1.0, 50);
+  timeline.addTo(brightness, 1.0, 50);
+  timeline.addTo(brightness, 0.25, 50);
+  timeline.addTo(brightness, 1.0, 50);
   timeline.addTo(brightness, 1.0, 50);
   timeline.addTo(brightness, 0.25, 50);
   timeline.addTo(brightness, 1.0, 50);
 }
 
-void doTubeRoutine () {
-    Serial.println("Tube touch.");
-    digitalWrite(SOUND1_PIN, LOW);
-    digitalWrite(ONBOARD_LED, LOW);
-    timeline.restartFrom(millis());
 
-    digitalWrite(SOUND2_PIN, HIGH);
-    digitalWrite(SOUND3_PIN, HIGH);
+// from Bill Earl's "Multi-tasking the Arduino - Part 3"
+// https://learn.adafruit.com/multi-tasking-the-arduino-part-3
+const unsigned long INTERVAL = 50;
+unsigned long lastUpdate = 0;
+unsigned int animIndex = 0;
+void startTubeRoutine() {
+  Serial.println("Tube start.");
+  digitalWrite(SOUND1_PIN, LOW);
+  digitalWrite(ONBOARD_LED, LOW);
+
+  digitalWrite(SOUND2_PIN, HIGH);
+  digitalWrite(SOUND3_PIN, HIGH);
+
+  routine = ROUTINE_1;
+  pendingRoutine = true;
+  lastUpdate = millis();
 }
 
-void doSplatterRoutine() {
-    Serial.println("Splatter touch.");
-    digitalWrite(SOUND2_PIN, LOW);
-    digitalWrite(ONBOARD_LED, LOW);
-    timeline.restartFrom(millis());
-
-    digitalWrite(SOUND1_PIN, HIGH);
-    digitalWrite(SOUND3_PIN, HIGH);
-}
-
-void doFarRoutine() {
-    Serial.println("Far touch.");
-    digitalWrite(SOUND3_PIN, LOW);
-    digitalWrite(ONBOARD_LED, LOW);
-    timeline.restartFrom(millis());
+void doTubeRoutine (bool isPlaying) {
+  if (pendingRoutine && isPlaying) {
+    pendingRoutine = false;
 
     digitalWrite(SOUND1_PIN, HIGH);
     digitalWrite(SOUND2_PIN, HIGH);
+    digitalWrite(SOUND3_PIN, HIGH);
+  }
+
+  if ((millis() - lastUpdate) <= INTERVAL) {
+    return;
+  }
+
+  lastUpdate = millis();
+  animIndex++;
+  if (animIndex >= PIXEL_COUNT ) {
+    animIndex = 1;
+  }
+
+  for(int i=0; i < PIXEL_COUNT; i++)
+  {
+      if ((i + animIndex) % 3 == 0)
+      {
+          stripLEDs.setPixelColor(i, stripColor1);
+      }
+      else
+      {
+          stripLEDs.setPixelColor(i, stripColor2);
+      }
+  }
+  stripLEDs.show();
+}
+
+void startSplatterRoutine() {
+  Serial.println("Splatter start.");
+  digitalWrite(SOUND2_PIN, LOW);
+  digitalWrite(ONBOARD_LED, LOW);
+  
+  digitalWrite(SOUND1_PIN, HIGH);
+  digitalWrite(SOUND3_PIN, HIGH);
+
+  routine = ROUTINE_2;
+  pendingRoutine = true;
+}
+
+void doSplatterRoutine(bool isPlaying) {
+  Serial.println("Splatter update.");
+  if (pendingRoutine && isPlaying) {
+    pendingRoutine = false;
+    digitalWrite(SOUND1_PIN, HIGH);
+    digitalWrite(SOUND2_PIN, HIGH);
+    digitalWrite(SOUND3_PIN, HIGH);
+  }
+}
+
+void startFarRoutine() {
+  Serial.println("Far start.");
+  digitalWrite(SOUND3_PIN, LOW);
+  digitalWrite(ONBOARD_LED, LOW);
+  timeline.restartFrom(millis());
+
+  digitalWrite(SOUND1_PIN, HIGH);
+  digitalWrite(SOUND2_PIN, HIGH);
+
+  routine = ROUTINE_3;
+  pendingRoutine = true;
+}
+
+void doFarRoutine(bool isPlaying) {
+  if (pendingRoutine && isPlaying) {
+    pendingRoutine = false;
+    digitalWrite(SOUND1_PIN, HIGH);
+    digitalWrite(SOUND2_PIN, HIGH);
+    digitalWrite(SOUND3_PIN, HIGH);
+  }
+
+  Serial.print("Rbightness: "); Serial.println(brightness);
+
+  if (timeline.isComplete()) {
+    timeline.restartFrom(millis());
+  }
+  
+  stripLEDs.fill(stripColor1 * brightness);
+  stripLEDs.show();
 }
