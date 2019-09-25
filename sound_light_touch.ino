@@ -67,8 +67,9 @@ void setup() {
   stripLEDs.show();
 
   // 3 colors: Red, Green, Blue whose values range from 0-255.
-  stripColor1 = stripLEDs.Color(108, 235, 10); 
-  stripColor2 = stripLEDs.Color(25, 25, 25, 0);
+  // These colors might not be in Red-Green-Blue order; depends on the LEDs
+  stripColor1 = stripLEDs.Color(120, 255, 50 ); 
+  stripColor2 = stripLEDs.Color(66, 132, 10);
 
   pinMode(ONBOARD_LED, OUTPUT);
 }
