@@ -34,7 +34,8 @@ Adafruit_NeoPixel stripLEDs = Adafruit_NeoPixel(PIXEL_COUNT, LIGHTS_PIN, NEO_RGB
 
 int myFeed = 0;
 
-TweenDuino::Timeline timeline;
+TweenDuino::Timeline flickerTimeline;
+TweenDuino::Timeline riseTimeline;
 
 uint32_t stripColor1, stripColor2;  // What colors are in use in the strips.
 void setup() {
@@ -59,9 +60,11 @@ void setup() {
 
   stripLEDs.begin();
 
-  addTweensTo(timeline);
+  buildFlicker(flickerTimeline);
+  buildRiseFall(riseTimeline);
 
-  timeline.begin(millis());
+  flickerTimeline.begin(millis());
+  riseTimeline.begin(millis());
 
   stripLEDs.clear();
   stripLEDs.show();
@@ -88,7 +91,8 @@ const long MAX_ROUTINE_WAIT = 1000; // millisecs
 
 void loop() {
   long loopStart = millis();
-  timeline.update(loopStart);
+  flickerTimeline.update(loopStart);
+  riseTimeline.update(loopStart);
 
   bool playing = isPlaying();
 
@@ -177,17 +181,23 @@ bool isPlaying () {
 }
 
 // Make a pattern.
-float brightness = 0.0f;
-void addTweensTo(TweenDuino::Timeline &timeline) {
-  timeline.addTo(brightness, 1.0, 50);
-  timeline.addTo(brightness, 0.25, 50);
-  timeline.addTo(brightness, 1.0, 50);
-  timeline.addTo(brightness, 1.0, 50);
-  timeline.addTo(brightness, 0.25, 50);
-  timeline.addTo(brightness, 1.0, 50);
-  timeline.addTo(brightness, 1.0, 50);
-  timeline.addTo(brightness, 0.25, 50);
-  timeline.addTo(brightness, 1.0, 50);
+float flickerBrightness = 0.0f;
+void buildFlicker(TweenDuino::Timeline &timeline) {
+  timeline.addTo(flickerBrightness, 0.7, 25);
+  timeline.addTo(flickerBrightness, 0.2, 25);
+}
+
+float overallBrightness = 0.0f;
+void buildRiseFall(TweenDuino::Timeline &timeline) {
+  timeline.addTo(overallBrightness, 0.10, 0);
+  timeline.addTo(overallBrightness, 0.6, 238);
+  timeline.addTo(overallBrightness, 0.10, 167);
+  timeline.addTo(overallBrightness, 1.0, 169);
+  timeline.addTo(overallBrightness, 0.10, 590);
+  timeline.addTo(overallBrightness, 1.0, 365);
+  timeline.addTo(overallBrightness, 0.10, 825);
+  timeline.addTo(overallBrightness, 1.0, 722);
+  timeline.addTo(overallBrightness, 0.10, 715);
 }
 
 
@@ -293,7 +303,8 @@ void startFarRoutine() {
   Serial.println("Far start.");
   digitalWrite(SOUND3_PIN, LOW);
   digitalWrite(ONBOARD_LED, LOW);
-  timeline.restartFrom(millis());
+  flickerTimeline.restartFrom(millis());
+  riseTimeline.restartFrom(millis());
 
   digitalWrite(SOUND1_PIN, HIGH);
   digitalWrite(SOUND2_PIN, HIGH);
@@ -310,12 +321,13 @@ void doFarRoutine(bool isPlaying) {
     digitalWrite(SOUND3_PIN, HIGH);
   }
 
+  float brightness = overallBrightness * flickerBrightness;
   Serial.print("Rbightness: "); Serial.println(brightness);
 
-  if (timeline.isComplete()) {
-    timeline.restartFrom(millis());
+  if (flickerTimeline.isComplete()) {
+    flickerTimeline.restartFrom(millis());
   }
   
-  stripLEDs.fill(stripColor1 * brightness);
+  stripLEDs.fill(stripLEDs.Color(120 * brightness, 255* brightness, 50* brightness));
   stripLEDs.show();
 }
