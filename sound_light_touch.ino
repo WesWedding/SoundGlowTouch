@@ -192,7 +192,7 @@ void addTweensTo(TweenDuino::Timeline &timeline) {
 
 // from Bill Earl's "Multi-tasking the Arduino - Part 3"
 // https://learn.adafruit.com/multi-tasking-the-arduino-part-3
-const unsigned long INTERVAL = 50;
+const unsigned long THEATER_INTERVAL = 50;
 unsigned long lastUpdate = 0;
 unsigned int animIndex = 0;
 void startTubeRoutine() {
@@ -217,7 +217,7 @@ void doTubeRoutine (bool isPlaying) {
     digitalWrite(SOUND3_PIN, HIGH);
   }
 
-  if ((millis() - lastUpdate) <= INTERVAL) {
+  if ((millis() - lastUpdate) <= THEATER_INTERVAL) {
     return;
   }
 
@@ -251,16 +251,41 @@ void startSplatterRoutine() {
 
   routine = ROUTINE_2;
   pendingRoutine = true;
+  lastUpdate = millis();
 }
 
+const unsigned long MARCH_INTERVAL = 500;
 void doSplatterRoutine(bool isPlaying) {
-  Serial.println("Splatter update.");
   if (pendingRoutine && isPlaying) {
     pendingRoutine = false;
+
     digitalWrite(SOUND1_PIN, HIGH);
     digitalWrite(SOUND2_PIN, HIGH);
     digitalWrite(SOUND3_PIN, HIGH);
   }
+
+  if ((millis() - lastUpdate) <= MARCH_INTERVAL) {
+    return;
+  }
+
+  lastUpdate = millis();
+  animIndex++;
+  if (animIndex >= PIXEL_COUNT ) {
+    animIndex = 0;
+  }
+
+  for(int i=0; i < PIXEL_COUNT; i++)
+  {
+      if ((i + animIndex) % 2 == 0)
+      {
+          stripLEDs.setPixelColor(i, stripColor1);
+      }
+      else
+      {
+          stripLEDs.setPixelColor(i, stripColor2);
+      }
+  }
+  stripLEDs.show();
 }
 
 void startFarRoutine() {
